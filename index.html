@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="vi">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vòng quay may mắn</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="script.js"></script>
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <h1>BPC Vòng Quay May Mắn</h1>
+        <p class="subtitle">Nhấn <strong>QUAY</strong> để bắt đầu.</p>
+      </header>
+
+      <section class="content">
+        <div class="wheel-wrapper" aria-label="Vòng quay may mắn">
+          <canvas id="wheel" class="wheel" aria-label="Vòng quay"></canvas>
+          <div class="pointer" aria-hidden="true"></div>
+          <button id="spinBtn" class="spin-btn" type="button" aria-label="Quay">
+            <svg
+              class="spin-logo"
+              viewBox="0 0 520 180"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <defs>
+                <linearGradient id="bpcGrad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stop-color="#3b0a45" />
+                  <stop offset="1" stop-color="#6d2b7a" />
+                </linearGradient>
+              </defs>
+              <path
+                fill="url(#bpcGrad)"
+                fill-rule="evenodd"
+                d="M30 20 L155 90 L30 160 L115 160 L240 90 L115 20 Z
+                   M88 47 L158 90 L88 133 L110 133 L180 90 L110 47 Z"
+              />
+              <text
+                x="260"
+                y="118"
+                fill="url(#bpcGrad)"
+                font-family="Arial Black, Arial, Helvetica, sans-serif"
+                font-size="110"
+                font-weight="900"
+                letter-spacing="2"
+              >
+                BPC
+              </text>
+            </svg>
+          </button>
+        </div>
+
+        <aside class="panel" aria-label="Bảng thông tin">
+          <div class="result">
+            <div class="result-label">Kết quả</div>
+            <div id="resultText" class="result-text" role="status" aria-live="polite">
+              Sẵn sàng quay.
+            </div>
+          </div>
+
+          <div class="panel-section">
+            <div class="panel-title">Giải thưởng</div>
+            <ul id="prizeList" class="prize-list"></ul>
+          </div>
+
+          <div class="panel-actions">
+            <button id="resetBtn" class="btn secondary" type="button">Reset số lượng</button>
+          </div>
+        </aside>
+      </section>
+
+      <footer class="footer">
+        <small>Copyright 2026 © BPC Banking Technology</small>
+      </footer>
+    </main>
+  </body>
+</html>
