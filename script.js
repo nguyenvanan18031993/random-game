@@ -3,14 +3,15 @@
 const STORAGE_KEY = "lucky_wheel_state_v1";
 
 const DEFAULT_PRIZES = [
-  { id: "tivi", label: "Tivi", total: 3, probability: 0 },
+  { id: "tivi", label: "Tivi Sony 55 inch", total: 3, probability: 0 },
   { id: "iphone", label: "iPhone 17 Pro", total: 1, probability: 0 },
-  { id: "vacuum", label: "Máy hút bụi", total: 3, probability: 1 },
+  { id: "vacuum", label: "Máy hút bụi", total: 3, probability: 3 },
+  { id: "hopqua", label: "Hộp quà Tết Director", total: 1, probability: 1 },
   { id: "500k", label: "500k", total: 1, probability: 1 },
-  { id: "200k", label: "200k", total: 2, probability: 3 },
-  { id: "100k", label: "100k", total: 5, probability: 10 },
-  { id: "50k", label: "50k", total: 10, probability: 15 },
-  { id: "20k", label: "20k", total: 32, probability: 30 },
+  { id: "200k", label: "200k", total: 2, probability: 2 },
+  { id: "100k", label: "100k", total: 5, probability: 5 },
+  { id: "50k", label: "50k", total: 10, probability: 10 },
+  { id: "20k", label: "20k", total: 20, probability: 20 },
 ];
 
 const COLORS = [
