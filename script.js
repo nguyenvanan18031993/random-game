@@ -30,6 +30,11 @@ const spinBtn = document.getElementById("spinBtn");
 const resetBtn = document.getElementById("resetBtn");
 const resultText = document.getElementById("resultText");
 const prizeList = document.getElementById("prizeList");
+const winModal = document.getElementById("winModal");
+const modalDesc = document.getElementById("modalDesc");
+const modalOk = document.getElementById("modalOk");
+const modalClose = document.getElementById("modalClose");
+const confettiLayer = document.getElementById("confettiLayer");
 
 const ctx = wheelCanvas.getContext("2d");
 
@@ -38,6 +43,183 @@ let isSpinning = false;
 let currentRotation = 0;
 
 let prizes = DEFAULT_PRIZES.map((p) => ({ ...p, remaining: p.total }));
+
+let audioCtx = null;
+let spinTickTimers = [];
+let confettiClearTimer = null;
+let lastFocusedEl = null;
+
+const CONFETTI_COLORS = [
+  "#a855f7",
+  "#f472b6",
+  "#60a5fa",
+  "#22c55e",
+  "#fde047",
+  "#fb7185",
+  "#67e8f9",
+  "#fdba74",
+];
+
+function prefersReducedMotion() {
+  return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
+}
+
+function ensureAudioContext() {
+  try {
+    if (!audioCtx) {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx) return null;
+      audioCtx = new Ctx();
+    }
+    if (audioCtx.state === "suspended") {
+      audioCtx.resume().catch(() => {});
+    }
+    return audioCtx;
+  } catch {
+    return null;
+  }
+}
+
+function playTick(volume = 0.06) {
+  const ctx = ensureAudioContext();
+  if (!ctx) return;
+
+  const t = ctx.currentTime;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+
+  osc.type = "square";
+  osc.frequency.setValueAtTime(880, t);
+
+  gain.gain.setValueAtTime(0.0001, t);
+  gain.gain.linearRampToValueAtTime(volume, t + 0.004);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
+
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  osc.start(t);
+  osc.stop(t + 0.06);
+}
+
+function playWinJingle() {
+  const ctx = ensureAudioContext();
+  if (!ctx) return;
+
+  const t0 = ctx.currentTime + 0.02;
+  const notes = [
+    { f: 523.25, t: 0.0, d: 0.14 }, // C5
+    { f: 659.25, t: 0.14, d: 0.14 }, // E5
+    { f: 783.99, t: 0.28, d: 0.16 }, // G5
+    { f: 1046.5, t: 0.46, d: 0.24 }, // C6
+  ];
+
+  for (const n of notes) {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(n.f, t0 + n.t);
+
+    gain.gain.setValueAtTime(0.0001, t0 + n.t);
+    gain.gain.linearRampToValueAtTime(0.09, t0 + n.t + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + n.t + n.d);
+
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(t0 + n.t);
+    osc.stop(t0 + n.t + n.d + 0.02);
+  }
+}
+
+function clearSpinTicks() {
+  for (const id of spinTickTimers) window.clearTimeout(id);
+  spinTickTimers = [];
+}
+
+function scheduleSpinTicks(segments, durationMs) {
+  clearSpinTicks();
+  if (segments <= 0 || durationMs <= 0) return;
+  if (prefersReducedMotion()) return;
+
+  ensureAudioContext();
+
+  const exponent = 2.15; // tăng dần khoảng cách tick để tạo cảm giác chậm lại
+  for (let i = 0; i < segments; i++) {
+    const p = (i + 1) / segments;
+    const when = Math.pow(p, exponent) * durationMs;
+    const vol = 0.045 + (1 - p) * 0.03;
+    spinTickTimers.push(window.setTimeout(() => playTick(vol), when));
+  }
+}
+
+function clearConfetti() {
+  if (!confettiLayer) return;
+  if (confettiClearTimer) window.clearTimeout(confettiClearTimer);
+  confettiClearTimer = null;
+  confettiLayer.replaceChildren();
+}
+
+function spawnConfetti() {
+  if (!confettiLayer) return;
+  clearConfetti();
+  if (prefersReducedMotion()) return;
+
+  const count = 140;
+  let maxMs = 0;
+  for (let i = 0; i < count; i++) {
+    const piece = document.createElement("div");
+    piece.className = "confetti-piece";
+
+    const delay = Math.random() * 450;
+    const duration = 2200 + Math.random() * 1600;
+    maxMs = Math.max(maxMs, delay + duration);
+
+    const color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
+
+    piece.style.setProperty("--x", `${Math.random() * 100}vw`);
+    piece.style.setProperty("--w", `${6 + Math.random() * 7}px`);
+    piece.style.setProperty("--h", `${10 + Math.random() * 14}px`);
+    piece.style.setProperty("--c", color);
+    piece.style.setProperty("--d", `${duration}ms`);
+    piece.style.setProperty("--delay", `${delay}ms`);
+    piece.style.setProperty("--r", `${Math.floor(Math.random() * 360)}deg`);
+
+    confettiLayer.appendChild(piece);
+  }
+
+  confettiClearTimer = window.setTimeout(() => {
+    confettiLayer.replaceChildren();
+    confettiClearTimer = null;
+  }, maxMs + 200);
+}
+
+function openWinModal(prizeLabel) {
+  if (!winModal || !modalDesc) return;
+
+  lastFocusedEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+  modalDesc.textContent = `Bạn trúng: ${prizeLabel}\n\nTivi và iPhone vẫn còn nhiều, hãy cố lên nào...`;
+
+  winModal.hidden = false;
+  document.body.classList.add("modal-open");
+  spawnConfetti();
+  playWinJingle();
+
+  window.setTimeout(() => {
+    if (modalOk) modalOk.focus();
+    else if (modalClose) modalClose.focus();
+  }, 0);
+}
+
+function closeWinModal() {
+  if (!winModal) return;
+  winModal.hidden = true;
+  document.body.classList.remove("modal-open");
+  clearConfetti();
+  if (lastFocusedEl && typeof lastFocusedEl.focus === "function") lastFocusedEl.focus();
+  lastFocusedEl = null;
+}
 
 function clampInt(value, min, max) {
   if (!Number.isFinite(value)) return min;
@@ -72,9 +254,8 @@ function saveState() {
 
 function formatPrizeMeta(prize) {
   const stock = `Còn ${prize.remaining}/${prize.total}`;
-  const prob = `${prize.probability}%`;
   if (prize.probability <= 0) return `${stock}`;
-  if (prize.remaining <= 0) return `${stock} • ${prob} • Hết giải`;
+  if (prize.remaining <= 0) return `${stock} • Hết giải`;
   return `${stock}`;
 }
 
@@ -213,8 +394,8 @@ function getSpinTargetRotation(prizeIndex) {
   const normalizedCurrent = ((currentRotation % 360) + 360) % 360;
   const delta = (desiredDeg - normalizedCurrent + 360) % 360;
 
-  const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
-  const extraSpins = prefersReducedMotion ? 0 : 6 + Math.floor(Math.random() * 3); // 6–8 vòng
+  const reducedMotion = prefersReducedMotion();
+  const extraSpins = reducedMotion ? 0 : 6 + Math.floor(Math.random() * 3); // 6–8 vòng
 
   return currentRotation + extraSpins * 360 + delta;
 }
@@ -240,11 +421,14 @@ function updateSpinAvailability() {
 
 function onSpin() {
   if (isSpinning) return;
+  closeWinModal();
   const available = getAvailablePrizes();
   if (available.length === 0) {
     updateSpinAvailability();
     return;
   }
+
+  ensureAudioContext();
 
   const chosen = weightedPick(available);
   if (!chosen) return;
@@ -252,17 +436,25 @@ function onSpin() {
   const chosenIndex = prizes.findIndex((p) => p.id === chosen.id);
   if (chosenIndex < 0) return;
 
+  const startRotation = currentRotation;
+
   isSpinning = true;
   updateSpinAvailability();
   spinBtn.setAttribute("aria-label", "Đang quay…");
   spinBtn.classList.add("is-spinning");
   setResult("Đang quay…");
 
-  const prefersReducedMotion = window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  const reducedMotion = prefersReducedMotion();
   const targetRotation = getSpinTargetRotation(chosenIndex);
-  const durationMs = prefersReducedMotion ? 0 : 5200;
+  const durationMs = reducedMotion ? 0 : 5200;
+
+  const sliceDeg = 360 / prizes.length;
+  const segmentsToPass = Math.max(0, Math.round((targetRotation - startRotation) / sliceDeg));
+  if (durationMs === 0) playTick(0.075);
+  else scheduleSpinTicks(segmentsToPass, durationMs);
 
   const finalize = () => {
+    clearSpinTicks();
     currentRotation = targetRotation;
 
     const updated = prizes.find((p) => p.id === chosen.id);
@@ -276,6 +468,7 @@ function onSpin() {
       `Bạn trúng: ${chosen.label}\n\nTivi và iPhone vẫn còn nhiều, hãy cố lên nào...`,
       "success",
     );
+    openWinModal(chosen.label);
 
     isSpinning = false;
     spinBtn.setAttribute("aria-label", "Quay");
@@ -319,6 +512,8 @@ function onSpin() {
 
 function onReset() {
   if (isSpinning) return;
+  clearSpinTicks();
+  closeWinModal();
   prizes = DEFAULT_PRIZES.map((p) => ({ ...p, remaining: p.total }));
   currentRotation = 0;
   wheelCanvas.style.transition = "none";
@@ -338,3 +533,18 @@ updateSpinAvailability();
 spinBtn.addEventListener("click", onSpin);
 resetBtn.addEventListener("click", onReset);
 window.addEventListener("resize", resizeWheel, { passive: true });
+
+if (modalOk) modalOk.addEventListener("click", closeWinModal);
+if (modalClose) modalClose.addEventListener("click", closeWinModal);
+if (winModal) {
+  winModal.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLElement)) return;
+    if (target.dataset.close === "true") closeWinModal();
+  });
+}
+window.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (!winModal || winModal.hidden) return;
+  closeWinModal();
+});

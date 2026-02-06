@@ -76,5 +76,26 @@
         <small>Copyright 2026 © BPC Banking Technology</small>
       </footer>
     </main>
+
+    <div id="winModal" class="modal" hidden>
+      <div class="modal-backdrop" data-close="true" aria-hidden="true"></div>
+      <div
+        class="modal-dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="modalTitle"
+        aria-describedby="modalDesc"
+      >
+        <button id="modalClose" class="modal-close" type="button" aria-label="Đóng popup">
+          ×
+        </button>
+        <h2 id="modalTitle" class="modal-title">Chúc mừng bạn đã trúng </h2>
+        <p id="modalDesc" class="modal-desc"></p>
+        <div class="modal-actions">
+          <button id="modalOk" class="btn" type="button">OK</button>
+        </div>
+      </div>
+      <div id="confettiLayer" class="confetti" aria-hidden="true"></div>
+    </div>
   </body>
 </html>
