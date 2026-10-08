@@ -1,551 +1,587 @@
-"use strict";
+(function () {
+  "use strict";
 
-const STORAGE_KEY = "lucky_wheel_state_v1";
+  const TOTAL_GIFTS = 35;
+  const STORAGE_KEY = "codex-team-gift-pinning-v1";
 
-const DEFAULT_PRIZES = [
-  { id: "tivi", label: "Tivi Sony 55 inch", total: 3, probability: 0 },
-  { id: "iphone", label: "iPhone 17 Pro", total: 1, probability: 0 },
-  { id: "vacuum", label: "Máy hút bụi", total: 3, probability: 3 },
-  { id: "hopqua", label: "Hộp quà Tết Director", total: 1, probability: 1 },
-  { id: "500k", label: "500k", total: 1, probability: 1 },
-  { id: "200k", label: "200k", total: 2, probability: 2 },
-  { id: "100k", label: "100k", total: 5, probability: 5 },
-  { id: "50k", label: "50k", total: 10, probability: 10 },
-  { id: "20k", label: "20k", total: 20, probability: 20 },
-];
-
-const COLORS = [
-  "#fde047",
-  "#93c5fd",
-  "#fca5a5",
-  "#86efac",
-  "#c4b5fd",
-  "#fdba74",
-  "#67e8f9",
-  "#f9a8d4",
-];
-
-const wheelCanvas = document.getElementById("wheel");
-const wheelWrapper = document.querySelector(".wheel-wrapper");
-const spinBtn = document.getElementById("spinBtn");
-const resetBtn = document.getElementById("resetBtn");
-const resultText = document.getElementById("resultText");
-const prizeList = document.getElementById("prizeList");
-const winModal = document.getElementById("winModal");
-const modalDesc = document.getElementById("modalDesc");
-const modalOk = document.getElementById("modalOk");
-const modalClose = document.getElementById("modalClose");
-const confettiLayer = document.getElementById("confettiLayer");
-
-const ctx = wheelCanvas.getContext("2d");
-
-let wheelSize = 0;
-let isSpinning = false;
-let currentRotation = 0;
-
-let prizes = DEFAULT_PRIZES.map((p) => ({ ...p, remaining: p.total }));
-
-let audioCtx = null;
-let spinTickTimers = [];
-let confettiClearTimer = null;
-let lastFocusedEl = null;
-
-const CONFETTI_COLORS = [
-  "#a855f7",
-  "#f472b6",
-  "#60a5fa",
-  "#22c55e",
-  "#fde047",
-  "#fb7185",
-  "#67e8f9",
-  "#fdba74",
-];
-
-function prefersReducedMotion() {
-  return window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches ?? false;
-}
-
-function ensureAudioContext() {
-  try {
-    if (!audioCtx) {
-      const Ctx = window.AudioContext || window.webkitAudioContext;
-      if (!Ctx) return null;
-      audioCtx = new Ctx();
-    }
-    if (audioCtx.state === "suspended") {
-      audioCtx.resume().catch(() => {});
-    }
-    return audioCtx;
-  } catch {
-    return null;
-  }
-}
-
-function playTick(volume = 0.06) {
-  const ctx = ensureAudioContext();
-  if (!ctx) return;
-
-  const t = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-
-  osc.type = "square";
-  osc.frequency.setValueAtTime(880, t);
-
-  gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.linearRampToValueAtTime(volume, t + 0.004);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.05);
-
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-
-  osc.start(t);
-  osc.stop(t + 0.06);
-}
-
-function playWinJingle() {
-  const ctx = ensureAudioContext();
-  if (!ctx) return;
-
-  const t0 = ctx.currentTime + 0.02;
-  const notes = [
-    { f: 523.25, t: 0.0, d: 0.14 }, // C5
-    { f: 659.25, t: 0.14, d: 0.14 }, // E5
-    { f: 783.99, t: 0.28, d: 0.16 }, // G5
-    { f: 1046.5, t: 0.46, d: 0.24 }, // C6
+  const PHOTO_POOL = [
+    "assets/can-holder.jpg",
+    "assets/can-holder-detail.jpg",
+    "assets/clear-mugs.jpg",
+    "assets/clear-mug-detail.jpg",
+    "assets/desk-cups.jpg",
+    "assets/travel-bottles.jpg",
+    "assets/white-bottles.jpg",
+    "assets/laptop-sleeves.jpg"
   ];
 
-  for (const n of notes) {
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
+  const GIFT_TEMPLATES = [
+    { key: "speaker", name: "Speaker", type: "Grand gift", rarity: "grand", count: 5, icon: "speaker" },
+    { key: "power-bank", name: "Pin dự phòng", type: "Special gift", rarity: "special", count: 1, icon: "battery" },
+    { key: "can-holder", name: "Insulated can holder", type: "Small gift", rarity: "small", count: 5, image: "assets/can-holder.jpg" },
+    { key: "clear-mug", name: "Clear mug", type: "Small gift", rarity: "small", count: 5, image: "assets/clear-mugs.jpg" },
+    { key: "desk-cup", name: "Desk cup set", type: "Small gift", rarity: "small", count: 3, image: "assets/desk-cups.jpg" },
+    { key: "travel-bottle", name: "Travel bottle", type: "Small gift", rarity: "small", count: 3, image: "assets/travel-bottles.jpg" },
+    { key: "white-bottle", name: "Clear bottle", type: "Small gift", rarity: "small", count: 3, image: "assets/white-bottles.jpg" },
+    { key: "laptop-sleeve", name: "Laptop sleeve", type: "Small gift", rarity: "small", count: 3, image: "assets/laptop-sleeves.jpg" },
+    { key: "mixed-small", name: "Small gift surprise", type: "Small gift", rarity: "small", count: 5, imagePool: PHOTO_POOL },
+    { key: "team-bonus", name: "Team bonus gift", type: "Small gift", rarity: "bonus", count: 2, icon: "bonus" }
+  ];
 
-    osc.type = "triangle";
-    osc.frequency.setValueAtTime(n.f, t0 + n.t);
+  const elements = {
+    startDialog: document.getElementById("startDialog"),
+    resultDialog: document.getElementById("resultDialog"),
+    startBtn: document.getElementById("startBtn"),
+    nextBtn: document.getElementById("nextBtn"),
+    pinBtn: document.getElementById("pinBtn"),
+    resetBtn: document.getElementById("resetBtn"),
+    exportBtn: document.getElementById("exportBtn"),
+    fullscreenBtn: document.getElementById("fullscreenBtn"),
+    soundBtn: document.getElementById("soundBtn"),
+    participantName: document.getElementById("participantName"),
+    roundNumber: document.getElementById("roundNumber"),
+    remainingCopy: document.getElementById("remainingCopy"),
+    progressBar: document.getElementById("progressBar"),
+    speakerCount: document.getElementById("speakerCount"),
+    powerCount: document.getElementById("powerCount"),
+    smallCount: document.getElementById("smallCount"),
+    historyList: document.getElementById("historyList"),
+    giftBoard: document.getElementById("giftBoard"),
+    boardTitle: document.getElementById("boardTitle"),
+    resultVisual: document.getElementById("resultVisual"),
+    resultParticipant: document.getElementById("resultParticipant"),
+    resultGift: document.getElementById("resultGift"),
+    resultType: document.getElementById("resultType"),
+    confettiLayer: document.getElementById("confettiLayer")
+  };
 
-    gain.gain.setValueAtTime(0.0001, t0 + n.t);
-    gain.gain.linearRampToValueAtTime(0.09, t0 + n.t + 0.01);
-    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + n.t + n.d);
+  const confettiColors = ["#d5523a", "#087b83", "#d49a22", "#4f7c38", "#6d579b", "#191714"];
+  let state = loadState();
+  let highlightedGiftId = "";
+  let spinning = false;
+  let audioContext = null;
+  let soundOn = true;
 
-    osc.connect(gain);
-    gain.connect(ctx.destination);
+  init();
 
-    osc.start(t0 + n.t);
-    osc.stop(t0 + n.t + n.d + 0.02);
-  }
-}
+  function init() {
+    render();
+    bindEvents();
+    preloadImages();
 
-function clearSpinTicks() {
-  for (const id of spinTickTimers) window.clearTimeout(id);
-  spinTickTimers = [];
-}
-
-function scheduleSpinTicks(segments, durationMs) {
-  clearSpinTicks();
-  if (segments <= 0 || durationMs <= 0) return;
-  if (prefersReducedMotion()) return;
-
-  ensureAudioContext();
-
-  const exponent = 2.15; // tăng dần khoảng cách tick để tạo cảm giác chậm lại
-  for (let i = 0; i < segments; i++) {
-    const p = (i + 1) / segments;
-    const when = Math.pow(p, exponent) * durationMs;
-    const vol = 0.045 + (1 - p) * 0.03;
-    spinTickTimers.push(window.setTimeout(() => playTick(vol), when));
-  }
-}
-
-function clearConfetti() {
-  if (!confettiLayer) return;
-  if (confettiClearTimer) window.clearTimeout(confettiClearTimer);
-  confettiClearTimer = null;
-  confettiLayer.replaceChildren();
-}
-
-function spawnConfetti() {
-  if (!confettiLayer) return;
-  clearConfetti();
-  if (prefersReducedMotion()) return;
-
-  const count = 140;
-  let maxMs = 0;
-  for (let i = 0; i < count; i++) {
-    const piece = document.createElement("div");
-    piece.className = "confetti-piece";
-
-    const delay = Math.random() * 450;
-    const duration = 2200 + Math.random() * 1600;
-    maxMs = Math.max(maxMs, delay + duration);
-
-    const color = CONFETTI_COLORS[Math.floor(Math.random() * CONFETTI_COLORS.length)];
-
-    piece.style.setProperty("--x", `${Math.random() * 100}vw`);
-    piece.style.setProperty("--w", `${6 + Math.random() * 7}px`);
-    piece.style.setProperty("--h", `${10 + Math.random() * 14}px`);
-    piece.style.setProperty("--c", color);
-    piece.style.setProperty("--d", `${duration}ms`);
-    piece.style.setProperty("--delay", `${delay}ms`);
-    piece.style.setProperty("--r", `${Math.floor(Math.random() * 360)}deg`);
-
-    confettiLayer.appendChild(piece);
+    if (!state.started && typeof elements.startDialog.showModal === "function") {
+      elements.startDialog.showModal();
+    }
   }
 
-  confettiClearTimer = window.setTimeout(() => {
-    confettiLayer.replaceChildren();
-    confettiClearTimer = null;
-  }, maxMs + 200);
-}
+  function bindEvents() {
+    elements.startBtn.addEventListener("click", startGame);
+    elements.pinBtn.addEventListener("click", pinGift);
+    elements.nextBtn.addEventListener("click", closeResult);
+    elements.resetBtn.addEventListener("click", resetGame);
+    elements.exportBtn.addEventListener("click", exportCsv);
+    elements.fullscreenBtn.addEventListener("click", toggleFullscreen);
+    elements.soundBtn.addEventListener("click", toggleSound);
 
-function openWinModal(prizeLabel) {
-  if (!winModal || !modalDesc) return;
+    elements.participantName.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        pinGift();
+      }
+    });
+  }
 
-  lastFocusedEl = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-  modalDesc.textContent = `Bạn trúng: ${prizeLabel}\n\nTivi và iPhone vẫn còn nhiều, hãy cố lên nào...`;
+  function startGame() {
+    state.started = true;
+    saveState();
+    ensureAudio();
+    playStartSound();
+    elements.startDialog.close();
+    elements.participantName.focus();
+  }
 
-  winModal.hidden = false;
-  document.body.classList.add("modal-open");
-  spawnConfetti();
-  playWinJingle();
+  function loadState() {
+    try {
+      const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
+      if (stored && Array.isArray(stored.deck) && stored.deck.length === TOTAL_GIFTS) {
+        return stored;
+      }
+    } catch (error) {
+      console.warn("Could not load saved game", error);
+    }
 
-  window.setTimeout(() => {
-    if (modalOk) modalOk.focus();
-    else if (modalClose) modalClose.focus();
-  }, 0);
-}
+    return {
+      started: false,
+      deck: buildDeck(),
+      history: []
+    };
+  }
 
-function closeWinModal() {
-  if (!winModal) return;
-  winModal.hidden = true;
-  document.body.classList.remove("modal-open");
-  clearConfetti();
-  if (lastFocusedEl && typeof lastFocusedEl.focus === "function") lastFocusedEl.focus();
-  lastFocusedEl = null;
-}
+  function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
 
-function clampInt(value, min, max) {
-  if (!Number.isFinite(value)) return min;
-  return Math.max(min, Math.min(max, Math.trunc(value)));
-}
+  function buildDeck() {
+    const deck = [];
 
-function loadState() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return;
-    const parsed = JSON.parse(raw);
-    const remainingById = parsed?.remainingById ?? {};
-    const savedRotation = parsed?.rotation;
+    GIFT_TEMPLATES.forEach((template) => {
+      for (let index = 1; index <= template.count; index += 1) {
+        const image = template.image || pickFromPool(template.imagePool, index);
+        deck.push({
+          id: `${template.key}-${index}-${deck.length}`,
+          slot: deck.length + 1,
+          name: `${template.name} ${template.count > 1 ? index : ""}`.trim(),
+          type: template.type,
+          rarity: template.rarity,
+          image,
+          icon: template.icon || "",
+          revealed: false,
+          winner: "",
+          revealedAt: ""
+        });
+      }
+    });
 
-    prizes = DEFAULT_PRIZES.map((p) => ({
-      ...p,
-      remaining: clampInt(remainingById[p.id] ?? p.total, 0, p.total),
+    return shuffle(deck).map((gift, index) => ({
+      ...gift,
+      slot: index + 1
     }));
-    if (Number.isFinite(savedRotation)) currentRotation = savedRotation;
-  } catch {
-    // ignore corrupt storage
   }
-}
 
-function saveState() {
-  const remainingById = Object.fromEntries(prizes.map((p) => [p.id, p.remaining]));
-  localStorage.setItem(
-    STORAGE_KEY,
-    JSON.stringify({ remainingById, rotation: currentRotation }),
-  );
-}
-
-function formatPrizeMeta(prize) {
-  const stock = `Còn ${prize.remaining}/${prize.total}`;
-  if (prize.probability <= 0) return `${stock}`;
-  if (prize.remaining <= 0) return `${stock} • Hết giải`;
-  return `${stock}`;
-}
-
-function renderPrizeList() {
-  prizeList.replaceChildren();
-  prizes.forEach((prize) => {
-    const li = document.createElement("li");
-    li.className = "prize-item" + (prize.remaining <= 0 ? " out" : "");
-
-    const left = document.createElement("div");
-    left.className = "prize-name";
-    left.textContent = prize.label;
-
-    const right = document.createElement("div");
-    right.className = "prize-meta";
-    right.textContent = formatPrizeMeta(prize);
-
-    li.append(left, right);
-    prizeList.append(li);
-  });
-}
-
-function splitLabel(label) {
-  const words = label.trim().split(/\s+/).filter(Boolean);
-  if (words.length <= 1) return [label];
-  if (words.length === 2) return words;
-  const mid = Math.ceil(words.length / 2);
-  return [words.slice(0, mid).join(" "), words.slice(mid).join(" ")];
-}
-
-function drawWheel() {
-  if (!wheelSize) return;
-
-  ctx.clearRect(0, 0, wheelSize, wheelSize);
-
-  const cx = wheelSize / 2;
-  const cy = wheelSize / 2;
-  const radius = wheelSize / 2 - 10;
-  const count = prizes.length;
-  const slice = (Math.PI * 2) / count;
-
-  let start = -Math.PI / 2;
-  for (let i = 0; i < count; i++) {
-    const prize = prizes[i];
-    const end = start + slice;
-
-    const baseColor = COLORS[i % COLORS.length];
-    const isActive = prize.remaining > 0 && prize.probability > 0;
-    const fill = isActive ? baseColor : "#cbd5e1";
-
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, radius, start, end);
-    ctx.closePath();
-    ctx.fillStyle = fill;
-    ctx.fill();
-
-    ctx.strokeStyle = "rgba(255,255,255,0.92)";
-    ctx.lineWidth = 2;
-    ctx.stroke();
-
-    const mid = (start + end) / 2;
-    const labelLines = splitLabel(prize.label);
-
-    ctx.save();
-    ctx.translate(cx, cy);
-    ctx.rotate(mid);
-    ctx.textBaseline = "middle";
-
-    let textAlign = "right";
-    let x = radius - 14;
-    if (mid > Math.PI / 2 && mid < (3 * Math.PI) / 2) {
-      ctx.rotate(Math.PI);
-      textAlign = "left";
-      x = -(radius - 14);
+  function pickFromPool(pool, index) {
+    if (!pool || !pool.length) {
+      return "";
     }
-    ctx.textAlign = textAlign;
 
-    const labelFontSize = prize.label.length > 10 ? 14 : 16;
-    ctx.font = `800 ${labelFontSize}px ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial`;
-    ctx.fillStyle = isActive ? "rgba(15, 23, 42, 0.92)" : "rgba(30, 41, 59, 0.72)";
+    return pool[(index - 1) % pool.length];
+  }
 
-    const lineH = labelFontSize + 2;
-    const y0 = -((labelLines.length - 1) * lineH) / 2;
-    for (let l = 0; l < labelLines.length; l++) {
-      ctx.fillText(labelLines[l], x, y0 + l * lineH);
+  function shuffle(items) {
+    const next = [...items];
+
+    for (let index = next.length - 1; index > 0; index -= 1) {
+      const swapIndex = randomInt(index + 1);
+      const value = next[index];
+      next[index] = next[swapIndex];
+      next[swapIndex] = value;
     }
-    ctx.restore();
 
-    start = end;
+    return next;
   }
 
-  ctx.beginPath();
-  ctx.arc(cx, cy, radius * 0.09, 0, Math.PI * 2);
-  ctx.fillStyle = "rgba(255,255,255,0.92)";
-  ctx.fill();
-  ctx.strokeStyle = "rgba(0,0,0,0.16)";
-  ctx.lineWidth = 2;
-  ctx.stroke();
-}
+  function randomInt(limit) {
+    if (window.crypto && window.crypto.getRandomValues) {
+      const values = new Uint32Array(1);
+      window.crypto.getRandomValues(values);
+      return values[0] % limit;
+    }
 
-function resizeWheel() {
-  const rect = wheelWrapper.getBoundingClientRect();
-  const size = Math.max(240, Math.floor(Math.min(rect.width, rect.height)));
-  wheelSize = size;
-
-  const dpr = window.devicePixelRatio || 1;
-  wheelCanvas.width = Math.round(size * dpr);
-  wheelCanvas.height = Math.round(size * dpr);
-  wheelCanvas.style.width = `${size}px`;
-  wheelCanvas.style.height = `${size}px`;
-  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-
-  drawWheel();
-  if (!isSpinning) wheelCanvas.style.transform = `rotate(${currentRotation}deg)`;
-}
-
-function weightedPick(items) {
-  const total = items.reduce((sum, item) => sum + item.probability, 0);
-  if (total <= 0) return null;
-
-  let r = Math.random() * total;
-  for (const item of items) {
-    r -= item.probability;
-    if (r < 0) return item;
-  }
-  return items[items.length - 1] ?? null;
-}
-
-function getSpinTargetRotation(prizeIndex) {
-  const count = prizes.length;
-  const sliceDeg = 360 / count;
-  const segmentCenterDeg = prizeIndex * sliceDeg + sliceDeg / 2;
-  const desiredDeg = (360 - segmentCenterDeg) % 360;
-
-  const normalizedCurrent = ((currentRotation % 360) + 360) % 360;
-  const delta = (desiredDeg - normalizedCurrent + 360) % 360;
-
-  const reducedMotion = prefersReducedMotion();
-  const extraSpins = reducedMotion ? 0 : 6 + Math.floor(Math.random() * 3); // 6–8 vòng
-
-  return currentRotation + extraSpins * 360 + delta;
-}
-
-function setResult(text, kind = "default") {
-  resultText.textContent = text;
-  if (kind === "success") resultText.style.color = "rgba(255,255,255,0.95)";
-  else if (kind === "error") resultText.style.color = "#fecaca";
-  else resultText.style.color = "rgba(255,255,255,0.92)";
-}
-
-function getAvailablePrizes() {
-  return prizes.filter((p) => p.remaining > 0 && p.probability > 0);
-}
-
-function updateSpinAvailability() {
-  const available = getAvailablePrizes();
-  spinBtn.disabled = isSpinning || available.length === 0;
-  if (!isSpinning && available.length === 0) {
-    setResult("Đã hết giải có thể trúng. Vui lòng Reset để quay lại.", "error");
-  }
-}
-
-function onSpin() {
-  if (isSpinning) return;
-  closeWinModal();
-  const available = getAvailablePrizes();
-  if (available.length === 0) {
-    updateSpinAvailability();
-    return;
+    return Math.floor(Math.random() * limit);
   }
 
-  ensureAudioContext();
+  async function pinGift() {
+    if (spinning) {
+      return;
+    }
 
-  const chosen = weightedPick(available);
-  if (!chosen) return;
+    const available = state.deck.filter((gift) => !gift.revealed);
+    if (!available.length) {
+      elements.boardTitle.textContent = "All gifts have been pinned";
+      return;
+    }
 
-  const chosenIndex = prizes.findIndex((p) => p.id === chosen.id);
-  if (chosenIndex < 0) return;
+    spinning = true;
+    elements.pinBtn.disabled = true;
+    elements.participantName.disabled = true;
+    elements.boardTitle.textContent = "Pinning...";
+    ensureAudio();
+    playDrumroll();
 
-  const startRotation = currentRotation;
+    const selected = available[randomInt(available.length)];
+    let delay = 44;
+    const steps = Math.min(34, available.length * 3 + 12);
 
-  isSpinning = true;
-  updateSpinAvailability();
-  spinBtn.setAttribute("aria-label", "Đang quay…");
-  spinBtn.classList.add("is-spinning");
-  setResult("Đang quay…");
+    for (let step = 0; step < steps; step += 1) {
+      const gift = step === steps - 1 ? selected : available[randomInt(available.length)];
+      highlightedGiftId = gift.id;
+      renderBoard();
+      playTick(step);
+      await wait(delay);
+      delay += step > 18 ? 18 : 8;
+    }
 
-  const reducedMotion = prefersReducedMotion();
-  const targetRotation = getSpinTargetRotation(chosenIndex);
-  const durationMs = reducedMotion ? 0 : 5200;
+    await wait(260);
+    revealGift(selected);
+  }
 
-  const sliceDeg = 360 / prizes.length;
-  const segmentsToPass = Math.max(0, Math.round((targetRotation - startRotation) / sliceDeg));
-  if (durationMs === 0) playTick(0.075);
-  else scheduleSpinTicks(segmentsToPass, durationMs);
+  function revealGift(gift) {
+    const participant = sanitizeParticipant(elements.participantName.value, state.history.length + 1);
+    const revealedAt = new Date().toLocaleString();
+    const target = state.deck.find((item) => item.id === gift.id);
 
-  const finalize = () => {
-    clearSpinTicks();
-    currentRotation = targetRotation;
-
-    const updated = prizes.find((p) => p.id === chosen.id);
-    if (updated) updated.remaining = Math.max(0, updated.remaining - 1);
+    target.revealed = true;
+    target.winner = participant;
+    target.revealedAt = revealedAt;
+    state.history.unshift({
+      id: target.id,
+      slot: target.slot,
+      participant,
+      gift: target.name,
+      type: target.type,
+      rarity: target.rarity,
+      revealedAt
+    });
 
     saveState();
-    renderPrizeList();
-    drawWheel();
+    render();
+    showResult(target, participant);
+    launchConfetti();
+    playRevealSound();
+    speakBravo(participant, target.name);
 
-    setResult(
-      `Bạn trúng: ${chosen.label}\n\nTivi và iPhone vẫn còn nhiều, hãy cố lên nào...`,
-      "success",
-    );
-    openWinModal(chosen.label);
-
-    isSpinning = false;
-    spinBtn.setAttribute("aria-label", "Quay");
-    spinBtn.classList.remove("is-spinning");
-    updateSpinAvailability();
-  };
-
-  if (durationMs === 0) {
-    wheelCanvas.style.transition = "none";
-    wheelCanvas.style.transform = `rotate(${targetRotation}deg)`;
-    setTimeout(finalize, 0);
-    return;
+    spinning = false;
+    elements.pinBtn.disabled = false;
+    elements.participantName.disabled = false;
   }
 
-  wheelCanvas.style.transition = `transform ${durationMs}ms cubic-bezier(0.18, 0.88, 0.22, 1)`;
+  function sanitizeParticipant(value, fallbackNumber) {
+    const clean = value.trim().replace(/\s+/g, " ");
+    return clean || `Person ${fallbackNumber}`;
+  }
 
-  // Ensure the browser applies the transition cleanly.
-  requestAnimationFrame(() => {
-    wheelCanvas.style.transform = `rotate(${targetRotation}deg)`;
-  });
+  function showResult(gift, participant) {
+    elements.resultParticipant.textContent = participant;
+    elements.resultGift.textContent = gift.name;
+    elements.resultType.textContent = gift.type;
+    elements.resultVisual.innerHTML = renderGiftVisual(gift);
 
-  let finalized = false;
-  const safeFinalize = () => {
-    if (finalized) return;
-    finalized = true;
-    finalize();
-  };
+    if (typeof elements.resultDialog.showModal === "function") {
+      elements.resultDialog.showModal();
+    }
+  }
 
-  const onEnd = (event) => {
-    if (event.propertyName !== "transform") return;
-    wheelCanvas.removeEventListener("transitionend", onEnd);
-    safeFinalize();
-  };
+  function closeResult() {
+    elements.resultDialog.close();
+    highlightedGiftId = "";
+    elements.participantName.value = "";
+    elements.participantName.focus();
+    render();
+  }
 
-  wheelCanvas.addEventListener("transitionend", onEnd);
-  window.setTimeout(() => {
-    wheelCanvas.removeEventListener("transitionend", onEnd);
-    safeFinalize();
-  }, durationMs + 200);
-}
+  function resetGame() {
+    const confirmed = window.confirm("Reset all pinned gifts and winners?");
+    if (!confirmed) {
+      return;
+    }
 
-function onReset() {
-  if (isSpinning) return;
-  clearSpinTicks();
-  closeWinModal();
-  prizes = DEFAULT_PRIZES.map((p) => ({ ...p, remaining: p.total }));
-  currentRotation = 0;
-  wheelCanvas.style.transition = "none";
-  wheelCanvas.style.transform = "rotate(0deg)";
-  saveState();
-  renderPrizeList();
-  drawWheel();
-  setResult("Đã reset. Sẵn sàng quay.");
-  updateSpinAvailability();
-}
+    state = {
+      started: true,
+      deck: buildDeck(),
+      history: []
+    };
+    highlightedGiftId = "";
+    saveState();
+    render();
+    elements.participantName.focus();
+  }
 
-loadState();
-renderPrizeList();
-resizeWheel();
-updateSpinAvailability();
+  function exportCsv() {
+    const rows = [
+      ["No", "Participant", "Gift", "Type", "Slot", "Pinned At"],
+      ...state.history.slice().reverse().map((entry, index) => [
+        index + 1,
+        entry.participant,
+        entry.gift,
+        entry.type,
+        entry.slot,
+        entry.revealedAt
+      ])
+    ];
 
-spinBtn.addEventListener("click", onSpin);
-resetBtn.addEventListener("click", onReset);
-window.addEventListener("resize", resizeWheel, { passive: true });
+    const csv = rows.map((row) => row.map(csvCell).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const link = document.createElement("a");
+    const datePart = new Date().toISOString().slice(0, 10);
+    link.href = URL.createObjectURL(blob);
+    link.download = `gift-winners-${datePart}.csv`;
+    link.click();
+    URL.revokeObjectURL(link.href);
+  }
 
-if (modalOk) modalOk.addEventListener("click", closeWinModal);
-if (modalClose) modalClose.addEventListener("click", closeWinModal);
-if (winModal) {
-  winModal.addEventListener("click", (event) => {
-    const target = event.target;
-    if (!(target instanceof HTMLElement)) return;
-    if (target.dataset.close === "true") closeWinModal();
-  });
-}
-window.addEventListener("keydown", (event) => {
-  if (event.key !== "Escape") return;
-  if (!winModal || winModal.hidden) return;
-  closeWinModal();
-});
+  function csvCell(value) {
+    return `"${String(value).replaceAll("\"", "\"\"")}"`;
+  }
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.();
+      return;
+    }
+
+    document.exitFullscreen?.();
+  }
+
+  function toggleSound() {
+    soundOn = !soundOn;
+    elements.soundBtn.setAttribute("aria-pressed", String(soundOn));
+    elements.soundBtn.textContent = soundOn ? "Sound On" : "Sound Off";
+
+    if (soundOn) {
+      ensureAudio();
+      playStartSound();
+    }
+  }
+
+  function render() {
+    const claimed = state.deck.filter((gift) => gift.revealed);
+    const remaining = TOTAL_GIFTS - claimed.length;
+    const currentRound = Math.min(claimed.length + 1, TOTAL_GIFTS);
+    const speakerRemaining = countRemaining("grand");
+    const powerRemaining = countRemaining("special");
+    const smallRemaining = remaining - speakerRemaining - powerRemaining;
+
+    elements.roundNumber.textContent = String(currentRound);
+    elements.remainingCopy.textContent = `${remaining} gift${remaining === 1 ? "" : "s"} remaining`;
+    elements.progressBar.style.width = `${(claimed.length / TOTAL_GIFTS) * 100}%`;
+    elements.speakerCount.textContent = String(speakerRemaining);
+    elements.powerCount.textContent = String(powerRemaining);
+    elements.smallCount.textContent = String(smallRemaining);
+    elements.pinBtn.textContent = remaining ? "Pin Gift" : "Finished";
+    elements.pinBtn.disabled = spinning || remaining === 0;
+    elements.exportBtn.disabled = state.history.length === 0;
+    elements.boardTitle.textContent = remaining ? "Choose the next lucky gift" : "All gifts have been pinned";
+
+    renderBoard();
+    renderHistory();
+  }
+
+  function countRemaining(rarity) {
+    return state.deck.filter((gift) => gift.rarity === rarity && !gift.revealed).length;
+  }
+
+  function renderBoard() {
+    elements.giftBoard.innerHTML = state.deck.map(renderGiftCard).join("");
+  }
+
+  function renderGiftCard(gift) {
+    const classes = [
+      "gift-card",
+      gift.rarity,
+      gift.revealed ? "revealed" : "",
+      gift.id === highlightedGiftId ? "is-hot" : ""
+    ].filter(Boolean).join(" ");
+
+    if (!gift.revealed) {
+      return `
+        <article class="${classes}" aria-label="Unrevealed gift slot ${gift.slot}">
+          <div class="card-cover">
+            <span class="pin-mark" aria-hidden="true"></span>
+            <span class="slot-number">${gift.slot}</span>
+            <span class="cover-label">Gift Pin</span>
+          </div>
+        </article>
+      `;
+    }
+
+    return `
+      <article class="${classes}" aria-label="${escapeHtml(gift.name)} won by ${escapeHtml(gift.winner)}">
+        <div class="card-face">
+          ${renderGiftVisual(gift)}
+          <div>
+            <div class="gift-name">${escapeHtml(gift.name)}</div>
+            <div class="winner-name">${escapeHtml(gift.winner)}</div>
+          </div>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderGiftVisual(gift) {
+    if (gift.image) {
+      return `<img class="card-image" src="${escapeAttribute(gift.image)}" alt="${escapeAttribute(gift.name)}">`;
+    }
+
+    const iconClass = gift.icon === "battery" ? "battery-icon" : gift.icon === "bonus" ? "bonus-icon" : "speaker-icon";
+    return `<div class="icon-tile" aria-hidden="true"><span class="${iconClass}"></span></div>`;
+  }
+
+  function renderHistory() {
+    if (!state.history.length) {
+      elements.historyList.innerHTML = "<li>No winners yet</li>";
+      return;
+    }
+
+    elements.historyList.innerHTML = state.history.map((entry) => `
+      <li>
+        <strong>${escapeHtml(entry.participant)}</strong><br>
+        ${escapeHtml(entry.gift)}
+      </li>
+    `).join("");
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll("\"", "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+
+  function escapeAttribute(value) {
+    return escapeHtml(value);
+  }
+
+  function wait(ms) {
+    return new Promise((resolve) => {
+      window.setTimeout(resolve, ms);
+    });
+  }
+
+  function preloadImages() {
+    PHOTO_POOL.forEach((src) => {
+      const image = new Image();
+      image.src = src;
+    });
+  }
+
+  function ensureAudio() {
+    if (!soundOn) {
+      return null;
+    }
+
+    if (!audioContext) {
+      const Context = window.AudioContext || window.webkitAudioContext;
+      audioContext = Context ? new Context() : null;
+    }
+
+    if (audioContext && audioContext.state === "suspended") {
+      audioContext.resume();
+    }
+
+    return audioContext;
+  }
+
+  function playStartSound() {
+    const context = ensureAudio();
+    if (!context) {
+      return;
+    }
+
+    playTone(330, 0.06, 0.03);
+    window.setTimeout(() => playTone(440, 0.08, 0.04), 70);
+    window.setTimeout(() => playTone(660, 0.1, 0.045), 150);
+  }
+
+  function playTick(step) {
+    if (!soundOn || step % 2 !== 0) {
+      return;
+    }
+
+    playTone(520 + step * 12, 0.026, 0.018);
+  }
+
+  function playDrumroll() {
+    if (!soundOn) {
+      return;
+    }
+
+    for (let index = 0; index < 14; index += 1) {
+      window.setTimeout(() => playNoise(0.036, 0.035), index * 72);
+    }
+  }
+
+  function playRevealSound() {
+    if (!soundOn) {
+      return;
+    }
+
+    [392, 523.25, 659.25, 783.99].forEach((frequency, index) => {
+      window.setTimeout(() => playTone(frequency, 0.22, 0.08), index * 90);
+    });
+
+    for (let index = 0; index < 7; index += 1) {
+      window.setTimeout(() => playNoise(0.045, 0.065), 420 + index * 90);
+    }
+  }
+
+  function playTone(frequency, duration, gainValue) {
+    const context = ensureAudio();
+    if (!context) {
+      return;
+    }
+
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = "triangle";
+    oscillator.frequency.value = frequency;
+    gain.gain.setValueAtTime(gainValue, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + duration);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start();
+    oscillator.stop(context.currentTime + duration);
+  }
+
+  function playNoise(duration, gainValue) {
+    const context = ensureAudio();
+    if (!context) {
+      return;
+    }
+
+    const bufferSize = context.sampleRate * duration;
+    const buffer = context.createBuffer(1, bufferSize, context.sampleRate);
+    const data = buffer.getChannelData(0);
+
+    for (let index = 0; index < bufferSize; index += 1) {
+      data[index] = (Math.random() * 2 - 1) * (1 - index / bufferSize);
+    }
+
+    const source = context.createBufferSource();
+    const filter = context.createBiquadFilter();
+    const gain = context.createGain();
+    filter.type = "bandpass";
+    filter.frequency.value = 1400;
+    gain.gain.value = gainValue;
+    source.buffer = buffer;
+    source.connect(filter);
+    filter.connect(gain);
+    gain.connect(context.destination);
+    source.start();
+  }
+
+  function speakBravo(participant, giftName) {
+    if (!soundOn || !("speechSynthesis" in window)) {
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(`Bravo! Chúc mừng ${participant}. ${giftName}.`);
+    utterance.lang = "vi-VN";
+    utterance.rate = 0.98;
+    utterance.pitch = 1.08;
+    window.setTimeout(() => window.speechSynthesis.speak(utterance), 620);
+  }
+
+  function launchConfetti() {
+    elements.confettiLayer.innerHTML = "";
+
+    for (let index = 0; index < 96; index += 1) {
+      const piece = document.createElement("span");
+      piece.className = "confetti-piece";
+      piece.style.background = confettiColors[index % confettiColors.length];
+      piece.style.setProperty("--x", `${randomBetween(-48, 48)}vw`);
+      piece.style.setProperty("--y", `${randomBetween(26, 58)}vh`);
+      piece.style.setProperty("--r", `${randomBetween(-580, 580)}deg`);
+      piece.style.animationDelay = `${randomBetween(0, 160)}ms`;
+      elements.confettiLayer.appendChild(piece);
+    }
+
+    window.setTimeout(() => {
+      elements.confettiLayer.innerHTML = "";
+    }, 1900);
+  }
+
+  function randomBetween(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  }
+})();

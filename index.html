@@ -1,101 +1,116 @@
 <!doctype html>
-<html lang="vi">
+<html lang="en">
   <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Vòng quay may mắn</title>
-    <link rel="stylesheet" href="styles.css" />
-    <script defer src="script.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Team Gift Pinning</title>
+    <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <main class="app">
-      <header class="header">
-        <h1>BPC Vòng Quay May Mắn</h1>
-        <p class="subtitle">Nhấn <strong>QUAY</strong> để bắt đầu.</p>
+    <div class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Team Building</p>
+          <h1>Gift Pinning</h1>
+        </div>
+        <div class="top-actions">
+          <button class="ghost-button" id="fullscreenBtn" type="button">Fullscreen</button>
+          <button class="ghost-button" id="soundBtn" type="button" aria-pressed="true">Sound On</button>
+        </div>
       </header>
 
-      <section class="content">
-        <div class="wheel-wrapper" aria-label="Vòng quay may mắn">
-          <canvas id="wheel" class="wheel" aria-label="Vòng quay"></canvas>
-          <div class="pointer" aria-hidden="true"></div>
-          <button id="spinBtn" class="spin-btn" type="button" aria-label="Quay">
-            <svg
-              class="spin-logo"
-              viewBox="0 0 520 180"
-              xmlns="http://www.w3.org/2000/svg"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <defs>
-                <linearGradient id="bpcGrad" x1="0" y1="0" x2="1" y2="0">
-                  <stop offset="0" stop-color="#3b0a45" />
-                  <stop offset="1" stop-color="#6d2b7a" />
-                </linearGradient>
-              </defs>
-              <path
-                fill="url(#bpcGrad)"
-                fill-rule="evenodd"
-                d="M30 20 L155 90 L30 160 L115 160 L240 90 L115 20 Z
-                   M88 47 L158 90 L88 133 L110 133 L180 90 L110 47 Z"
-              />
-              <text
-                x="260"
-                y="118"
-                fill="url(#bpcGrad)"
-                font-family="Arial Black, Arial, Helvetica, sans-serif"
-                font-size="110"
-                font-weight="900"
-                letter-spacing="2"
-              >
-                BPC
-              </text>
-            </svg>
-          </button>
-        </div>
-
-        <aside class="panel" aria-label="Bảng thông tin">
-          <div class="result">
-            <div class="result-label">Kết quả</div>
-            <div id="resultText" class="result-text" role="status" aria-live="polite">
-              Sẵn sàng quay.
+      <main class="game-layout">
+        <aside class="control-panel" aria-label="Gift pinning controls">
+          <section class="round-card">
+            <p class="panel-label">Now Pinning</p>
+            <div class="round-number"><span id="roundNumber">1</span><small>/ 35</small></div>
+            <div class="progress-track" aria-hidden="true">
+              <span id="progressBar"></span>
             </div>
-          </div>
+            <p id="remainingCopy" class="remaining-copy">35 gifts remaining</p>
+          </section>
 
-          <div class="panel-section">
-            <div class="panel-title">Giải thưởng</div>
-            <ul id="prizeList" class="prize-list"></ul>
-          </div>
+          <section class="participant-card">
+            <label for="participantName">Participant</label>
+            <input id="participantName" type="text" autocomplete="off" placeholder="Name or number">
+            <button class="primary-button" id="pinBtn" type="button">Pin Gift</button>
+          </section>
 
-          <div class="panel-actions">
-            <button id="resetBtn" class="btn secondary" type="button">Reset số lượng</button>
+          <section class="stats-grid" aria-label="Gift counts">
+            <div>
+              <span id="speakerCount">5</span>
+              <small>Speakers</small>
+            </div>
+            <div>
+              <span id="powerCount">1</span>
+              <small>Pin dự phòng</small>
+            </div>
+            <div>
+              <span id="smallCount">29</span>
+              <small>Small/bonus</small>
+            </div>
+          </section>
+
+          <section class="history-panel">
+            <div class="panel-header">
+              <h2>Winners</h2>
+              <button class="text-button" id="exportBtn" type="button">Export CSV</button>
+            </div>
+            <ol id="historyList" class="history-list"></ol>
+          </section>
+
+          <div class="utility-actions">
+            <button class="secondary-button" id="resetBtn" type="button">Reset Game</button>
           </div>
         </aside>
-      </section>
 
-      <footer class="footer">
-        <small>Copyright 2026 © BPC Banking Technology</small>
-      </footer>
-    </main>
+        <section class="board-panel" aria-label="Gift board">
+          <div class="board-header">
+            <div>
+              <p class="panel-label">Gift Board</p>
+              <h2 id="boardTitle">Choose the next lucky gift</h2>
+            </div>
+            <div class="legend" aria-label="Gift legend">
+              <span><i class="legend-dot grand"></i> Speaker</span>
+              <span><i class="legend-dot special"></i> Pin dự phòng</span>
+              <span><i class="legend-dot small"></i> Small gift</span>
+            </div>
+          </div>
+          <div id="giftBoard" class="gift-board"></div>
+        </section>
+      </main>
+    </div>
 
-    <div id="winModal" class="modal" hidden>
-      <div class="modal-backdrop" data-close="true" aria-hidden="true"></div>
-      <div
-        class="modal-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modalTitle"
-        aria-describedby="modalDesc"
-      >
-        <button id="modalClose" class="modal-close" type="button" aria-label="Đóng popup">
-          ×
-        </button>
-        <h2 id="modalTitle" class="modal-title">Chúc mừng bạn đã trúng </h2>
-        <p id="modalDesc" class="modal-desc"></p>
-        <div class="modal-actions">
-          <button id="modalOk" class="btn" type="button">OK</button>
+    <dialog id="startDialog" class="start-dialog">
+      <div class="dialog-grid">
+        <div class="dialog-copy">
+          <p class="eyebrow">Ready</p>
+          <h2>Start Gift Pinning</h2>
+          <p class="dialog-line">35 people. 35 pins. Every reveal gets a bravo moment.</p>
+          <div class="count-strip" aria-label="Gift setup">
+            <span>5 Speakers</span>
+            <span>1 Pin dự phòng</span>
+            <span>27 Small gifts + 2 Bonus</span>
+          </div>
+          <button class="primary-button wide" id="startBtn" type="button">Start Pinning</button>
+        </div>
+        <div class="photo-stack" aria-hidden="true">
+          <img src="assets/clear-mugs.jpg" alt="">
+          <img src="assets/laptop-sleeves.jpg" alt="">
+          <img src="assets/can-holder.jpg" alt="">
         </div>
       </div>
-      <div id="confettiLayer" class="confetti" aria-hidden="true"></div>
-    </div>
+    </dialog>
+
+    <dialog id="resultDialog" class="result-dialog">
+      <div id="resultVisual" class="result-visual"></div>
+      <p class="eyebrow" id="resultParticipant">Winner</p>
+      <h2 id="resultGift">Gift name</h2>
+      <p id="resultType" class="result-type">Gift type</p>
+      <button class="primary-button wide" id="nextBtn" type="button">Next Person</button>
+    </dialog>
+
+    <div id="confettiLayer" class="confetti-layer" aria-hidden="true"></div>
+    <script src="script.js"></script>
   </body>
 </html>
