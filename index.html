@@ -3,7 +3,7 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>Team Gift Pinning</title>
+    <title>Team Gift Roulette</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
@@ -11,7 +11,7 @@
       <header class="topbar">
         <div>
           <p class="eyebrow">Team Building Jackpot</p>
-          <h1>BPC Lucky Gift Spin</h1>
+          <h1>Lucky Gift Roulette</h1>
         </div>
         <div class="marquee-sign" aria-hidden="true">
           <span>Lucky Draw</span>
@@ -69,11 +69,11 @@
           </div>
         </aside>
 
-        <section class="board-panel" aria-label="Gift board">
+        <section class="board-panel" aria-label="Gift roulette">
           <div class="board-header">
             <div>
-              <p class="panel-label">Gift Board</p>
-              <h2 id="boardTitle">Choose the next lucky gift</h2>
+              <p class="panel-label">Gift Roulette</p>
+              <h2 id="boardTitle">Spin the wheel for the next gift</h2>
             </div>
             <div class="legend" aria-label="Gift legend">
               <span><i class="legend-dot grand"></i> Speaker</span>
@@ -81,20 +81,31 @@
               <span><i class="legend-dot small"></i> Small gift</span>
             </div>
           </div>
-          <div class="jackpot-stage" aria-live="polite">
+          <div class="roulette-arena" aria-live="polite">
             <div class="stage-lights" aria-hidden="true">
               <span></span><span></span><span></span><span></span><span></span><span></span>
             </div>
-            <div class="reel-window">
-              <div id="reelStrip" class="reel-strip">
-                <span class="reel-symbol">35</span>
-                <span class="reel-symbol">Lucky</span>
-                <span class="reel-symbol">Gift</span>
+            <div class="wheel-shell">
+              <div class="roulette-pointer" aria-hidden="true"></div>
+              <div id="rouletteWheel" class="roulette-wheel" aria-label="Roulette wheel with 35 gift slots"></div>
+              <div id="wheelCenter" class="wheel-center">
+                <span>35</span>
+                <small>Gift Roulette</small>
               </div>
             </div>
-            <p id="spinStatus" class="spin-status">Ready for the first spin</p>
+            <aside class="roulette-side" aria-label="Roulette status">
+              <p id="spinStatus" class="spin-status">Ready for the first spin</p>
+              <div class="current-prize">
+                <div id="currentPrizeVisual" class="current-prize-visual"></div>
+                <div>
+                  <p class="panel-label">Landing Pocket</p>
+                  <h3 id="currentPrizeName">Waiting for spin</h3>
+                  <p id="currentPrizeMeta">35 chances ready</p>
+                </div>
+              </div>
+              <div id="pocketStrip" class="pocket-strip" aria-label="Gift pocket status"></div>
+            </aside>
           </div>
-          <div id="giftBoard" class="gift-board"></div>
         </section>
       </main>
     </div>
@@ -103,8 +114,8 @@
       <div class="dialog-grid">
         <div class="dialog-copy">
           <p class="eyebrow">Ready</p>
-          <h2>Start Jackpot Spin</h2>
-          <p class="dialog-line">35 people. 35 spins. Every reveal gets lights, sound, and a bravo moment.</p>
+          <h2>Start Gift Roulette</h2>
+          <p class="dialog-line">35 people. 35 wheel spins. Every reveal gets lights, sound, and a bravo moment.</p>
           <div class="count-strip" aria-label="Gift setup">
             <span>5 Speakers</span>
             <span>1 Pin dự phòng</span>

@@ -2,6 +2,8 @@
   "use strict";
 
   const TOTAL_GIFTS = 35;
+  const SEGMENT_DEGREES = 360 / TOTAL_GIFTS;
+  const WHEEL_SPIN_MS = 4600;
   const STORAGE_KEY = "codex-team-gift-pinning-v1";
 
   const PHOTO_POOL = [
@@ -46,10 +48,14 @@
     powerCount: document.getElementById("powerCount"),
     smallCount: document.getElementById("smallCount"),
     historyList: document.getElementById("historyList"),
-    giftBoard: document.getElementById("giftBoard"),
     boardTitle: document.getElementById("boardTitle"),
-    reelStrip: document.getElementById("reelStrip"),
+    rouletteWheel: document.getElementById("rouletteWheel"),
+    wheelCenter: document.getElementById("wheelCenter"),
     spinStatus: document.getElementById("spinStatus"),
+    currentPrizeVisual: document.getElementById("currentPrizeVisual"),
+    currentPrizeName: document.getElementById("currentPrizeName"),
+    currentPrizeMeta: document.getElementById("currentPrizeMeta"),
+    pocketStrip: document.getElementById("pocketStrip"),
     resultVisual: document.getElementById("resultVisual"),
     resultBadge: document.getElementById("resultBadge"),
     resultParticipant: document.getElementById("resultParticipant"),
@@ -60,6 +66,7 @@
 
   const confettiColors = ["#d5523a", "#087b83", "#d49a22", "#4f7c38", "#6d579b", "#191714"];
   let state = loadState();
+  let wheelRotation = Number.isFinite(state.wheelRotation) ? state.wheelRotation : 0;
   let highlightedGiftId = "";
   let spinning = false;
   let audioContext = null;
@@ -115,11 +122,13 @@
     return {
       started: false,
       deck: buildDeck(),
-      history: []
+      history: [],
+      wheelRotation: 0
     };
   }
 
   function saveState() {
+    state.wheelRotation = wheelRotation;
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }
 
@@ -196,27 +205,22 @@
     document.body.classList.add("is-spinning");
     elements.pinBtn.disabled = true;
     elements.participantName.disabled = true;
-    elements.boardTitle.textContent = "Spinning the jackpot...";
-    elements.spinStatus.textContent = "Reels are spinning";
+    highlightedGiftId = "";
+    elements.boardTitle.textContent = "Roulette wheel spinning...";
+    elements.spinStatus.textContent = "Wheel is spinning";
     ensureAudio();
     playDrumroll();
 
     const selected = available[randomInt(available.length)];
-    let delay = 22;
-    const steps = Math.max(22, Math.min(46, available.length * 3 + 16));
+    renderCurrentPrize(null, "Wheel spinning");
+    spinWheelToGift(selected);
+    scheduleSpinTicks(WHEEL_SPIN_MS);
 
-    for (let step = 0; step < steps; step += 1) {
-      const gift = step === steps - 1 ? selected : available[randomInt(available.length)];
-      highlightedGiftId = gift.id;
-      renderReel(gift, available, step);
-      renderBoard();
-      playTick(step, steps);
-      await wait(delay);
-      delay += step > steps * 0.72 ? 13 : step > steps * 0.48 ? 6 : 2;
-    }
-
-    elements.spinStatus.textContent = "Locked in";
-    await wait(360);
+    await wait(WHEEL_SPIN_MS + 180);
+    highlightedGiftId = selected.id;
+    renderRoulette();
+    elements.spinStatus.textContent = "Wheel locked";
+    await wait(420);
     revealGift(selected);
   }
 
@@ -271,7 +275,6 @@
   function closeResult() {
     elements.resultDialog.close();
     highlightedGiftId = "";
-    renderIdleReel();
     elements.participantName.value = "";
     elements.participantName.focus();
     render();
@@ -289,6 +292,7 @@
       history: []
     };
     highlightedGiftId = "";
+    wheelRotation = 0;
     document.body.classList.remove("is-spinning");
     saveState();
     render();
@@ -359,79 +363,134 @@
     elements.pinBtn.textContent = remaining ? "Spin Gift" : "Finished";
     elements.pinBtn.disabled = spinning || remaining === 0;
     elements.exportBtn.disabled = state.history.length === 0;
-    elements.boardTitle.textContent = remaining ? "Choose the next lucky gift" : "All gifts have been pinned";
+    elements.boardTitle.textContent = remaining ? "Spin the wheel for the next gift" : "All gifts have been pinned";
     if (!spinning) {
-      renderIdleReel();
-      elements.spinStatus.textContent = remaining ? `${remaining} chances left` : "Prize board complete";
+      const lastGift = getLastRevealedGift();
+      elements.spinStatus.textContent = remaining ? `${remaining} roulette pockets left` : "Prize wheel complete";
+      renderCurrentPrize(lastGift, lastGift ? "Last landed" : "Waiting for spin");
     }
 
-    renderBoard();
+    renderRoulette();
+    renderPocketStrip();
     renderHistory();
-  }
-
-  function renderIdleReel() {
-    const remaining = state.deck.filter((gift) => !gift.revealed).length;
-    elements.reelStrip.innerHTML = [
-      "Ready",
-      remaining ? `${remaining} Left` : "Done",
-      "Lucky"
-    ].map((label) => `<span class="reel-symbol">${escapeHtml(label)}</span>`).join("");
-  }
-
-  function renderReel(activeGift, available, step) {
-    const before = available[randomInt(available.length)] || activeGift;
-    const after = available[randomInt(available.length)] || activeGift;
-    const label = activeGift.rarity === "grand" ? "Speaker" : activeGift.rarity === "special" ? "Power" : "Gift";
-    const symbols = [
-      `${before.slot}`,
-      step % 3 === 0 ? label : `${activeGift.slot}`,
-      `${after.slot}`
-    ];
-
-    elements.reelStrip.innerHTML = symbols.map((symbol, index) => `
-      <span class="reel-symbol ${index === 1 ? "active-symbol" : ""}">${escapeHtml(symbol)}</span>
-    `).join("");
   }
 
   function countRemaining(rarity) {
     return state.deck.filter((gift) => gift.rarity === rarity && !gift.revealed).length;
   }
 
-  function renderBoard() {
-    elements.giftBoard.innerHTML = state.deck.map(renderGiftCard).join("");
+  function renderRoulette() {
+    elements.rouletteWheel.style.background = buildWheelGradient();
+    elements.rouletteWheel.style.transform = `rotate(${wheelRotation}deg)`;
+    elements.rouletteWheel.innerHTML = state.deck.map(renderRoulettePocket).join("");
+    const remaining = state.deck.filter((gift) => !gift.revealed).length;
+    elements.wheelCenter.innerHTML = `<span>${remaining}</span><small>${remaining === 1 ? "Pocket left" : "Pockets left"}</small>`;
   }
 
-  function renderGiftCard(gift) {
+  function renderRoulettePocket(gift, index) {
+    const angle = index * SEGMENT_DEGREES + SEGMENT_DEGREES / 2;
     const classes = [
-      "gift-card",
+      "roulette-pocket",
       gift.rarity,
       gift.revealed ? "revealed" : "",
-      gift.id === highlightedGiftId ? "is-hot" : ""
+      gift.id === highlightedGiftId ? "is-active" : ""
     ].filter(Boolean).join(" ");
 
-    if (!gift.revealed) {
-      return `
-        <article class="${classes}" aria-label="Unrevealed gift slot ${gift.slot}">
-          <div class="card-cover">
-            <span class="pin-mark" aria-hidden="true"></span>
-            <span class="slot-number">${gift.slot}</span>
-            <span class="cover-label">Gift Pin</span>
-          </div>
-        </article>
-      `;
+    return `
+      <span class="${classes}" style="transform: rotate(${angle}deg) translateY(calc(var(--wheel-size) * -0.41)) rotate(${-angle}deg);" aria-label="Pocket ${gift.slot}, ${escapeAttribute(gift.name)}">
+        ${gift.slot}
+      </span>
+    `;
+  }
+
+  function buildWheelGradient() {
+    const segments = state.deck.map((gift, index) => {
+      const color = getSegmentColor(gift);
+      const start = index * SEGMENT_DEGREES;
+      const end = (index + 1) * SEGMENT_DEGREES - 0.18;
+      return `${color} ${start}deg ${end}deg, rgba(255, 247, 223, 0.30) ${end}deg ${(index + 1) * SEGMENT_DEGREES}deg`;
+    });
+
+    return `conic-gradient(from 0deg, ${segments.join(", ")})`;
+  }
+
+  function getSegmentColor(gift) {
+    if (gift.revealed) {
+      return "rgba(255, 255, 255, 0.16)";
     }
 
-    return `
-      <article class="${classes}" aria-label="${escapeHtml(gift.name)} won by ${escapeHtml(gift.winner)}">
-        <div class="card-face">
-          ${renderGiftVisual(gift)}
-          <div>
-            <div class="gift-name">${escapeHtml(gift.name)}</div>
-            <div class="winner-name">${escapeHtml(gift.winner)}</div>
-          </div>
-        </div>
-      </article>
-    `;
+    if (gift.rarity === "grand") {
+      return "#a86c00";
+    }
+
+    if (gift.rarity === "special") {
+      return "#087b83";
+    }
+
+    if (gift.rarity === "bonus") {
+      return "#6d579b";
+    }
+
+    const oddSlot = gift.slot % 2 === 1;
+    return oddSlot ? "#28301f" : "#8f1f34";
+  }
+
+  function renderPocketStrip() {
+    elements.pocketStrip.innerHTML = state.deck.map((gift) => {
+      const classes = [
+        "pocket-chip",
+        gift.rarity,
+        gift.revealed ? "revealed" : "",
+        gift.id === highlightedGiftId ? "is-active" : ""
+      ].filter(Boolean).join(" ");
+
+      return `<span class="${classes}" title="${escapeAttribute(gift.name)}">${gift.slot}</span>`;
+    }).join("");
+  }
+
+  function renderCurrentPrize(gift, statusLabel) {
+    if (!gift) {
+      elements.currentPrizeVisual.innerHTML = "";
+      elements.currentPrizeName.textContent = statusLabel || "Waiting for spin";
+      elements.currentPrizeMeta.textContent = `${state.deck.filter((item) => !item.revealed).length} chances ready`;
+      return;
+    }
+
+    elements.currentPrizeVisual.innerHTML = renderGiftVisual(gift);
+    elements.currentPrizeName.textContent = gift.name;
+    elements.currentPrizeMeta.textContent = `${statusLabel} · Pocket ${gift.slot}`;
+  }
+
+  function getLastRevealedGift() {
+    const last = state.history[0];
+    if (!last) {
+      return null;
+    }
+
+    return state.deck.find((gift) => gift.id === last.id) || null;
+  }
+
+  function spinWheelToGift(gift) {
+    const selectedIndex = state.deck.findIndex((item) => item.id === gift.id);
+    const selectedCenter = selectedIndex * SEGMENT_DEGREES + SEGMENT_DEGREES / 2;
+    const targetRotation = -selectedCenter;
+    const delta = normalizeDegrees(targetRotation - normalizeDegrees(wheelRotation));
+    wheelRotation += 360 * 7 + delta;
+    elements.rouletteWheel.style.transition = `transform ${WHEEL_SPIN_MS}ms cubic-bezier(0.08, 0.78, 0.04, 1)`;
+    elements.rouletteWheel.style.transform = `rotate(${wheelRotation}deg)`;
+  }
+
+  function normalizeDegrees(value) {
+    return ((value % 360) + 360) % 360;
+  }
+
+  function scheduleSpinTicks(duration) {
+    const ticks = 34;
+    for (let index = 0; index < ticks; index += 1) {
+      const progress = index / ticks;
+      const delay = Math.round(duration * Math.pow(progress, 1.68));
+      window.setTimeout(() => playTick(index, ticks), delay);
+    }
   }
 
   function renderGiftVisual(gift) {
