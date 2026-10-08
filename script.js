@@ -48,7 +48,10 @@
     historyList: document.getElementById("historyList"),
     giftBoard: document.getElementById("giftBoard"),
     boardTitle: document.getElementById("boardTitle"),
+    reelStrip: document.getElementById("reelStrip"),
+    spinStatus: document.getElementById("spinStatus"),
     resultVisual: document.getElementById("resultVisual"),
+    resultBadge: document.getElementById("resultBadge"),
     resultParticipant: document.getElementById("resultParticipant"),
     resultGift: document.getElementById("resultGift"),
     resultType: document.getElementById("resultType"),
@@ -190,26 +193,30 @@
     }
 
     spinning = true;
+    document.body.classList.add("is-spinning");
     elements.pinBtn.disabled = true;
     elements.participantName.disabled = true;
-    elements.boardTitle.textContent = "Pinning...";
+    elements.boardTitle.textContent = "Spinning the jackpot...";
+    elements.spinStatus.textContent = "Reels are spinning";
     ensureAudio();
     playDrumroll();
 
     const selected = available[randomInt(available.length)];
-    let delay = 44;
-    const steps = Math.min(34, available.length * 3 + 12);
+    let delay = 22;
+    const steps = Math.max(22, Math.min(46, available.length * 3 + 16));
 
     for (let step = 0; step < steps; step += 1) {
       const gift = step === steps - 1 ? selected : available[randomInt(available.length)];
       highlightedGiftId = gift.id;
+      renderReel(gift, available, step);
       renderBoard();
-      playTick(step);
+      playTick(step, steps);
       await wait(delay);
-      delay += step > 18 ? 18 : 8;
+      delay += step > steps * 0.72 ? 13 : step > steps * 0.48 ? 6 : 2;
     }
 
-    await wait(260);
+    elements.spinStatus.textContent = "Locked in";
+    await wait(360);
     revealGift(selected);
   }
 
@@ -232,6 +239,7 @@
     });
 
     saveState();
+    document.body.classList.remove("is-spinning");
     render();
     showResult(target, participant);
     launchConfetti();
@@ -249,6 +257,7 @@
   }
 
   function showResult(gift, participant) {
+    elements.resultBadge.textContent = gift.rarity === "grand" ? "Mega Jackpot" : gift.rarity === "special" ? "Power Hit" : "Jackpot";
     elements.resultParticipant.textContent = participant;
     elements.resultGift.textContent = gift.name;
     elements.resultType.textContent = gift.type;
@@ -262,6 +271,7 @@
   function closeResult() {
     elements.resultDialog.close();
     highlightedGiftId = "";
+    renderIdleReel();
     elements.participantName.value = "";
     elements.participantName.focus();
     render();
@@ -279,6 +289,7 @@
       history: []
     };
     highlightedGiftId = "";
+    document.body.classList.remove("is-spinning");
     saveState();
     render();
     elements.participantName.focus();
@@ -345,13 +356,41 @@
     elements.speakerCount.textContent = String(speakerRemaining);
     elements.powerCount.textContent = String(powerRemaining);
     elements.smallCount.textContent = String(smallRemaining);
-    elements.pinBtn.textContent = remaining ? "Pin Gift" : "Finished";
+    elements.pinBtn.textContent = remaining ? "Spin Gift" : "Finished";
     elements.pinBtn.disabled = spinning || remaining === 0;
     elements.exportBtn.disabled = state.history.length === 0;
     elements.boardTitle.textContent = remaining ? "Choose the next lucky gift" : "All gifts have been pinned";
+    if (!spinning) {
+      renderIdleReel();
+      elements.spinStatus.textContent = remaining ? `${remaining} chances left` : "Prize board complete";
+    }
 
     renderBoard();
     renderHistory();
+  }
+
+  function renderIdleReel() {
+    const remaining = state.deck.filter((gift) => !gift.revealed).length;
+    elements.reelStrip.innerHTML = [
+      "Ready",
+      remaining ? `${remaining} Left` : "Done",
+      "Lucky"
+    ].map((label) => `<span class="reel-symbol">${escapeHtml(label)}</span>`).join("");
+  }
+
+  function renderReel(activeGift, available, step) {
+    const before = available[randomInt(available.length)] || activeGift;
+    const after = available[randomInt(available.length)] || activeGift;
+    const label = activeGift.rarity === "grand" ? "Speaker" : activeGift.rarity === "special" ? "Power" : "Gift";
+    const symbols = [
+      `${before.slot}`,
+      step % 3 === 0 ? label : `${activeGift.slot}`,
+      `${after.slot}`
+    ];
+
+    elements.reelStrip.innerHTML = symbols.map((symbol, index) => `
+      <span class="reel-symbol ${index === 1 ? "active-symbol" : ""}">${escapeHtml(symbol)}</span>
+    `).join("");
   }
 
   function countRemaining(rarity) {
@@ -472,12 +511,16 @@
     window.setTimeout(() => playTone(660, 0.1, 0.045), 150);
   }
 
-  function playTick(step) {
-    if (!soundOn || step % 2 !== 0) {
+  function playTick(step, totalSteps) {
+    if (!soundOn) {
       return;
     }
 
-    playTone(520 + step * 12, 0.026, 0.018);
+    const nearEnd = step > totalSteps * 0.72;
+    playTone(480 + step * 10, nearEnd ? 0.052 : 0.026, nearEnd ? 0.034 : 0.018);
+    if (nearEnd && step % 3 === 0) {
+      playTone(240, 0.05, 0.02);
+    }
   }
 
   function playDrumroll() {
@@ -485,8 +528,8 @@
       return;
     }
 
-    for (let index = 0; index < 14; index += 1) {
-      window.setTimeout(() => playNoise(0.036, 0.035), index * 72);
+    for (let index = 0; index < 24; index += 1) {
+      window.setTimeout(() => playNoise(0.034, 0.04), index * 58);
     }
   }
 
@@ -495,12 +538,12 @@
       return;
     }
 
-    [392, 523.25, 659.25, 783.99].forEach((frequency, index) => {
-      window.setTimeout(() => playTone(frequency, 0.22, 0.08), index * 90);
+    [392, 523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+      window.setTimeout(() => playTone(frequency, 0.24, 0.09), index * 86);
     });
 
-    for (let index = 0; index < 7; index += 1) {
-      window.setTimeout(() => playNoise(0.045, 0.065), 420 + index * 90);
+    for (let index = 0; index < 12; index += 1) {
+      window.setTimeout(() => playNoise(0.05, 0.074), 410 + index * 72);
     }
   }
 
@@ -565,7 +608,7 @@
   function launchConfetti() {
     elements.confettiLayer.innerHTML = "";
 
-    for (let index = 0; index < 96; index += 1) {
+    for (let index = 0; index < 150; index += 1) {
       const piece = document.createElement("span");
       piece.className = "confetti-piece";
       piece.style.background = confettiColors[index % confettiColors.length];

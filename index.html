@@ -10,8 +10,13 @@
     <div class="app-shell">
       <header class="topbar">
         <div>
-          <p class="eyebrow">Team Building</p>
-          <h1>Gift Pinning</h1>
+          <p class="eyebrow">Team Building Jackpot</p>
+          <h1>Lucky Gift Spin</h1>
+        </div>
+        <div class="marquee-sign" aria-hidden="true">
+          <span>Lucky Draw</span>
+          <span>Jackpot Night</span>
+          <span>Bravo</span>
         </div>
         <div class="top-actions">
           <button class="ghost-button" id="fullscreenBtn" type="button">Fullscreen</button>
@@ -33,7 +38,7 @@
           <section class="participant-card">
             <label for="participantName">Participant</label>
             <input id="participantName" type="text" autocomplete="off" placeholder="Name or number">
-            <button class="primary-button" id="pinBtn" type="button">Pin Gift</button>
+            <button class="primary-button" id="pinBtn" type="button">Spin Gift</button>
           </section>
 
           <section class="stats-grid" aria-label="Gift counts">
@@ -76,6 +81,19 @@
               <span><i class="legend-dot small"></i> Small gift</span>
             </div>
           </div>
+          <div class="jackpot-stage" aria-live="polite">
+            <div class="stage-lights" aria-hidden="true">
+              <span></span><span></span><span></span><span></span><span></span><span></span>
+            </div>
+            <div class="reel-window">
+              <div id="reelStrip" class="reel-strip">
+                <span class="reel-symbol">35</span>
+                <span class="reel-symbol">Lucky</span>
+                <span class="reel-symbol">Gift</span>
+              </div>
+            </div>
+            <p id="spinStatus" class="spin-status">Ready for the first spin</p>
+          </div>
           <div id="giftBoard" class="gift-board"></div>
         </section>
       </main>
@@ -85,14 +103,14 @@
       <div class="dialog-grid">
         <div class="dialog-copy">
           <p class="eyebrow">Ready</p>
-          <h2>Start Gift Pinning</h2>
-          <p class="dialog-line">35 people. 35 pins. Every reveal gets a bravo moment.</p>
+          <h2>Start Jackpot Spin</h2>
+          <p class="dialog-line">35 people. 35 spins. Every reveal gets lights, sound, and a bravo moment.</p>
           <div class="count-strip" aria-label="Gift setup">
             <span>5 Speakers</span>
             <span>1 Pin dự phòng</span>
             <span>27 Small gifts + 2 Bonus</span>
           </div>
-          <button class="primary-button wide" id="startBtn" type="button">Start Pinning</button>
+          <button class="primary-button wide" id="startBtn" type="button">Start the Jackpot</button>
         </div>
         <div class="photo-stack" aria-hidden="true">
           <img src="assets/clear-mugs.jpg" alt="">
@@ -103,6 +121,7 @@
     </dialog>
 
     <dialog id="resultDialog" class="result-dialog">
+      <div class="jackpot-badge" id="resultBadge">Jackpot</div>
       <div id="resultVisual" class="result-visual"></div>
       <p class="eyebrow" id="resultParticipant">Winner</p>
       <h2 id="resultGift">Gift name</h2>
