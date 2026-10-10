@@ -921,8 +921,7 @@ h1 {
 
 .speaker-icon,
 .battery-icon,
-.bonus-icon,
-.pillow-icon {
+.bonus-icon {
   position: relative;
   width: 58%;
   max-width: 96px;
@@ -994,25 +993,6 @@ h1 {
   inset: 36% 5%;
   background: var(--coral);
   transform: rotate(0deg);
-}
-
-.pillow-icon {
-  width: 68%;
-  aspect-ratio: 1.25;
-  background: #f7e8d7;
-  border: 6px solid var(--violet);
-  border-radius: 24% 30% 24% 30%;
-  box-shadow:
-    inset 10px 9px 0 rgba(255, 255, 255, 0.62),
-    inset -8px -7px 0 rgba(109, 87, 155, 0.20);
-}
-
-.pillow-icon::before {
-  content: "";
-  position: absolute;
-  inset: 16%;
-  border: 3px solid rgba(109, 87, 155, 0.42);
-  border-radius: 26% 30% 26% 30%;
 }
 
 dialog {

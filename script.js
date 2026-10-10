@@ -1,10 +1,10 @@
 (function () {
   "use strict";
 
-  const TOTAL_GIFTS = 34;
+  const TOTAL_GIFTS = 33;
   const SEGMENT_DEGREES = 360 / TOTAL_GIFTS;
   const WHEEL_SPIN_MS = 4600;
-  const STORAGE_KEY = "codex-team-gift-roulette-v3";
+  const STORAGE_KEY = "codex-team-gift-roulette-v5";
 
   const PHOTO_POOL = [
     "assets/can-holder.jpg",
@@ -26,8 +26,7 @@
     { key: "travel-bottle", name: "Travel bottle", type: "Small gift", rarity: "small", count: 3, image: "assets/travel-bottles.jpg" },
     { key: "white-bottle", name: "Clear bottle", type: "Small gift", rarity: "small", count: 3, image: "assets/white-bottles.jpg" },
     { key: "laptop-sleeve", name: "Laptop sleeve", type: "Small gift", rarity: "small", count: 3, image: "assets/laptop-sleeves.jpg" },
-    { key: "mixed-small", name: "Small gift surprise", type: "Small gift", rarity: "small", count: 5, imagePool: PHOTO_POOL },
-    { key: "pillow", name: "Pillow", type: "Bonus gift", rarity: "bonus", count: 1, icon: "pillow" }
+    { key: "mixed-small", name: "Small gift surprise", type: "Small gift", rarity: "small", count: 5, imagePool: PHOTO_POOL }
   ];
 
   const elements = {
@@ -500,7 +499,6 @@
 
     const iconMap = {
       battery: "battery-icon",
-      pillow: "pillow-icon",
       bonus: "bonus-icon",
       speaker: "speaker-icon"
     };
