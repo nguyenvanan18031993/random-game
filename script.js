@@ -4,7 +4,7 @@
   const TOTAL_GIFTS = 33;
   const SEGMENT_DEGREES = 360 / TOTAL_GIFTS;
   const WHEEL_SPIN_MS = 4600;
-  const STORAGE_KEY = "codex-team-gift-roulette-v5";
+  const STORAGE_KEY = "codex-team-gift-roulette-v6";
 
   const PHOTO_POOL = [
     "assets/can-holder.jpg",
@@ -18,7 +18,7 @@
   ];
 
   const GIFT_TEMPLATES = [
-    { key: "speaker", name: "Speaker", type: "Grand gift", rarity: "grand", count: 5, icon: "speaker" },
+    { key: "speaker", name: "Speaker", type: "Grand gift", rarity: "grand", count: 5, image: "assets/speaker.jpg" },
     { key: "power-bank", name: "Pin dự phòng", type: "Special gift", rarity: "special", count: 1, icon: "battery" },
     { key: "can-holder", name: "Insulated can holder", type: "Small gift", rarity: "small", count: 5, image: "assets/can-holder.jpg" },
     { key: "clear-mug", name: "Clear mug", type: "Small gift", rarity: "small", count: 5, image: "assets/clear-mugs.jpg" },
