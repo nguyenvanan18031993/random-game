@@ -922,8 +922,7 @@ h1 {
 .speaker-icon,
 .battery-icon,
 .bonus-icon,
-.pillow-icon,
-.cash-icon {
+.pillow-icon {
   position: relative;
   width: 58%;
   max-width: 96px;
@@ -1014,28 +1013,6 @@ h1 {
   inset: 16%;
   border: 3px solid rgba(109, 87, 155, 0.42);
   border-radius: 26% 30% 26% 30%;
-}
-
-.cash-icon {
-  width: 72%;
-  aspect-ratio: 1.7;
-  background: #dff3cb;
-  border: 6px solid var(--green);
-  border-radius: 8px;
-  box-shadow: 8px 8px 0 rgba(79, 124, 56, 0.24);
-}
-
-.cash-icon::before {
-  content: "10K";
-  position: absolute;
-  inset: 18%;
-  display: grid;
-  place-items: center;
-  color: var(--green);
-  border: 3px solid rgba(79, 124, 56, 0.42);
-  border-radius: 999px;
-  font-size: clamp(1rem, 3vw, 1.8rem);
-  font-weight: 950;
 }
 
 dialog {
